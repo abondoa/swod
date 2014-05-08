@@ -26,23 +26,21 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
         return  generateQueriesForDataSet(dataSet);
     }
 
-    protected Iterable<? extends String> generateDimensionQueries(Resource dataSet, String dimension) throws RepositoryException {
-        ArrayList<String> levels = new ArrayList<String>(1);
+    protected ArrayList<? extends String> generateDimensionQueries(Resource dataSet, URI dimension) throws RepositoryException {
+        ArrayList<URI> levels = new ArrayList<URI>(1);
         levels.add(dimension);
         return generateLevelQueries(dataSet,levels,true);
     }
 
-    private Iterable<? extends String> generateLevelQueries(Resource dataSet, ArrayList<String> levels, boolean first) throws RepositoryException {
+    private ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
         ArrayList<String> res = new ArrayList<String>(1);
-        String nextLevelQuery = getPrefixes()+"SELECT ?level WHERE " +
-                "{ " +
-                " <" + levels.get(levels.size() - 1) + "> qb4o:parentLevel ?level . " +
-                "}" ;
-        ArrayList<String> nextLevels = new ArrayList<String>();
+        URI currentLevel = levels.get(levels.size() - 1);
+        URI dimension = levels.get(0);
+        ArrayList<URI> nextLevels = new ArrayList<URI>();
         try {
-            for(String level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
+            for(URI level : getParentLevels(dataSet,currentLevel))
             {
-                ArrayList<String> levelsTemp = new ArrayList<String>(levels);
+                ArrayList<URI> levelsTemp = new ArrayList<URI>(levels);
                 levelsTemp.add(level);
                 for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, false))
                 {
@@ -57,12 +55,8 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
         }
 
         String query = "construct \n" +
-                "{\n";
-        if(first)
-        {
-            query += "    ?fact <"+levels.get(0)+"> ?level0 .\n";
-        }
-        query +="    ?level0 ?p_level ?o_level .\n" +
+                "{\n" +
+                "    ?fact ?denorm_pred ?o .\n" +
                 "}\n" +
                 "where\n" +
                 "{\n" +
@@ -73,16 +67,20 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
         {
             query += "    ?level"+(i-1)+" <"+levels.get(i)+"> ?level"+i+".\n";
         }
-        query +="    ?level"+ (levels.size()-1)+" ?p_level ?o_level .\n" ;
+        query +="    ?level"+ (levels.size()-1)+" ?p ?o .\n" +
+                "    BIND(URI(CONCAT(\"http://lod2.eu/schemas/rdfh#\",\""+dimension+"_"+currentLevel+"_\",SUBSTR(STR(?p),29))) as ?denorm_predicate) .\n";
 
 
         query += "    FILTER(   \n";
-        for(String dim : nextLevels)
+        for(URI dim : nextLevels)
         {
-            query += "    ?p_level != <"+dim+"> &&\n";
+            query += "    ?p != <"+dim+"> &&\n";
         }
-        query += "    ?p_level != skos:broader\n";
-        query += "    ) .\n";
+        query +="    ?p != rdf:type && \n" +
+                "    ?p != qb:dataSet && \n" +
+                "    ?p != skos:broader &&\n" +
+                "    ?p != qb4o:inLevel\n"+
+                "    ) .\n";
 
         query += "} ";
         res.add(query);

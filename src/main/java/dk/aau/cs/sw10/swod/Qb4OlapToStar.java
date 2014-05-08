@@ -31,22 +31,22 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         return  generateQueriesForDataSet(dataSet);
     }
 
-    protected Iterable<? extends String> generateDimensionQueries(Resource dataSet, String dimension) throws RepositoryException {
-        ArrayList<String> levels = new ArrayList<String>(1);
+    protected ArrayList<? extends String> generateDimensionQueries(Resource dataSet, URI dimension) throws RepositoryException {
+        ArrayList<URI> levels = new ArrayList<URI>(1);
         levels.add(dimension);
         return generateLevelQueries(dataSet,levels,true);
     }
 
-    private Iterable<? extends String> generateLevelQueries(Resource dataSet, ArrayList<String> levels, boolean first) throws RepositoryException {
+    private ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
         if(this.levels.contains(levels.get(levels.size()-1))){
             //return new ArrayList<String>();
         }
         ArrayList<String> res = new ArrayList<String>(1);
-        ArrayList<String> nextLevels = new ArrayList<String>();
+        ArrayList<URI> nextLevels = new ArrayList<URI>();
         try {
-            for(String level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
+            for(URI level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
             {
-                ArrayList<String> levelsTemp = new ArrayList<String>(levels);
+                ArrayList<URI> levelsTemp = new ArrayList<URI>(levels);
                 levelsTemp.add(level);
                 for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, false))
                 {
@@ -81,7 +81,7 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
 
 
         query += "    FILTER(   \n";
-        for(String dim : nextLevels)
+        for(URI dim : nextLevels)
         {
             query += "    ?p_level != <"+dim+"> &&\n";
         }

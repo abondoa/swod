@@ -2,6 +2,7 @@ package dk.aau.cs.sw10.swod;
 
 import org.openrdf.model.Resource;
 import org.openrdf.model.URI;
+import org.openrdf.model.impl.ValueFactoryImpl;
 import org.openrdf.query.*;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
@@ -55,7 +56,7 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
                 "order by ASC(?order) " ;
 
         ArrayList<String> measures = new ArrayList<String>();
-        ArrayList<String> dimensions = new ArrayList<String>();
+        ArrayList<URI> dimensions = new ArrayList<URI>();
         ArrayList<String> queries = new ArrayList<String>();
 
         try {
@@ -69,20 +70,14 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
             while(result.hasNext())
             {
                 BindingSet next = result.next();
-                dimensions.add(next.getBinding("level").getValue().stringValue());
+                dimensions.add((URI)next.getBinding("level").getValue());
             }
 
-            for(String query : generateObservationQueries(dataSet,dimensions))
-            {
-                queries.add(query);
-            }
+            queries.addAll(generateObservationQueries(dataSet,dimensions));
 
-            for(String dimension : dimensions)
+            for(URI dimension : dimensions)
             {
-                for(String query : generateDimensionQueries(dataSet,dimension))
-                {
-                    queries.add(query);
-                }
+                queries.addAll(generateDimensionQueries(dataSet,dimension));
             }
         } catch (MalformedQueryException e) {
             e.printStackTrace();
@@ -93,9 +88,9 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         return queries;
     }
 
-    protected abstract Iterable<? extends String> generateDimensionQueries(Resource dataSet, String dimension) throws RepositoryException;
+    protected abstract ArrayList<? extends String> generateDimensionQueries(Resource dataSet, URI dimension) throws RepositoryException;
 
-    protected Iterable<? extends String> generateObservationQueries(Resource dataSet, ArrayList<String> dimensions) {
+    protected ArrayList<? extends String> generateObservationQueries(Resource dataSet, ArrayList<URI> dimensions) {
         String query = "construct \n" +
                 "{\n" +
                 "    ?li ?p_li ?o_li .\n" +
@@ -107,7 +102,7 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         if(!dimensions.isEmpty())
         {
             query += " FILTER(   \n";
-            for(String dim : dimensions)
+            for(URI dim : dimensions)
             {
                 query += " ?p_li != <"+dim+"> &&\n";
             }
@@ -119,8 +114,8 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         res.add(query);
         return res;
     }
-    protected Iterable<? extends String> getParentLevels(Resource dataSet, String level) throws MalformedQueryException, RepositoryException, QueryEvaluationException {
-        ArrayList<String> res = new ArrayList<String>();
+    protected Iterable<? extends URI> getParentLevels(Resource dataSet, URI level) throws MalformedQueryException, RepositoryException, QueryEvaluationException {
+        ArrayList<URI> res = new ArrayList<URI>();
         String nextLevelQuery = getPrefixes()+"SELECT ?level WHERE " +
                 "{ " +
                 " <" + level + "> qb4o:parentLevel ?level . " +
@@ -130,7 +125,7 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         while(result.hasNext())
         {
             BindingSet next = result.next();
-            res.add(((URI) next.getBinding("level").getValue()).toString());
+            res.add(((URI) next.getBinding("level").getValue()));
         }
         return res;
     }
