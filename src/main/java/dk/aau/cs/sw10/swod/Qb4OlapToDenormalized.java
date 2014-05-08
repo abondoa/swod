@@ -1,7 +1,6 @@
 package dk.aau.cs.sw10.swod;
 
 import org.openrdf.model.Resource;
-import org.openrdf.model.Value;
 import org.openrdf.model.URI;
 import org.openrdf.query.*;
 import org.openrdf.repository.RepositoryConnection;
@@ -10,24 +9,20 @@ import org.openrdf.repository.RepositoryException;
 import java.util.ArrayList;
 
 /**
- * Created by alex on 5/6/14.
+ * Created by alex on 5/8/14.
  */
-public class Qb4OlapToStar extends OlapDenormalizerAbstract
+public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
 {
-
-    private ArrayList<String> levels;
-
-    public Qb4OlapToStar(RepositoryConnection inputConnection) {
+    public Qb4OlapToDenormalized(RepositoryConnection inputConnection) {
         super(inputConnection);
     }
 
     /**
-     * Generate queries to convert data from QB4OLAP format into Starschema format
+     * Generate queries to convert data from QB4OLAP format into Denormalizedschema format
      * @param dataSet
      * @return
      */
     public Iterable<? extends String> generate(Resource dataSet) throws RepositoryException {
-        this.levels = new ArrayList<String>();
         return  generateQueriesForDataSet(dataSet);
     }
 
@@ -38,10 +33,11 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
     }
 
     private Iterable<? extends String> generateLevelQueries(Resource dataSet, ArrayList<String> levels, boolean first) throws RepositoryException {
-        if(this.levels.contains(levels.get(levels.size()-1))){
-            //return new ArrayList<String>();
-        }
         ArrayList<String> res = new ArrayList<String>(1);
+        String nextLevelQuery = getPrefixes()+"SELECT ?level WHERE " +
+                "{ " +
+                " <" + levels.get(levels.size() - 1) + "> qb4o:parentLevel ?level . " +
+                "}" ;
         ArrayList<String> nextLevels = new ArrayList<String>();
         try {
             for(String level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
