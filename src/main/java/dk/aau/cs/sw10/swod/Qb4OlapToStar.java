@@ -4,8 +4,12 @@ import org.openrdf.model.Resource;
 import org.openrdf.model.Value;
 import org.openrdf.model.URI;
 import org.openrdf.query.*;
+import org.openrdf.repository.Repository;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
+import org.openrdf.repository.sail.SailRepository;
+import org.openrdf.sail.memory.MemoryStore;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.ArrayList;
 
@@ -26,18 +30,12 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
      * @param dataSet
      * @return
      */
-    public Iterable<? extends String> generate(Resource dataSet) throws RepositoryException {
+    public Iterable<? extends String> generateInstanceDataQueries(Resource dataSet) throws RepositoryException {
         this.levels = new ArrayList<String>();
         return  generateQueriesForDataSet(dataSet);
     }
 
-    protected ArrayList<? extends String> generateDimensionQueries(Resource dataSet, URI dimension) throws RepositoryException {
-        ArrayList<URI> levels = new ArrayList<URI>(1);
-        levels.add(dimension);
-        return generateLevelQueries(dataSet,levels,true);
-    }
-
-    private ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
+    protected ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
         if(this.levels.contains(levels.get(levels.size()-1))){
             //return new ArrayList<String>();
         }
@@ -91,5 +89,16 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         query += "} ";
         res.add(query);
         return res;
+    }
+
+    public Repository generateOntology(Resource dataSet) throws RepositoryException
+    {
+        throw new NotImplementedException();
+        /*org.openrdf.repository.Repository repo = new SailRepository(new MemoryStore());
+        repo.initialize();
+        RepositoryConnection con = repo.getConnection();
+
+        con.close();
+        return repo;*/
     }
 }

@@ -43,8 +43,8 @@ public class Main
         con.add(inputFile, "", RDFFormat.TURTLE);//forFileName(inputFile.getName()));
 
         int i = 0;
-        Qb4OlapToStar converter = new Qb4OlapToStar(con);
-        for ( String q :converter.generate(new Resource() {
+        OlapDenormalizer converter = new Qb4OlapToDenormalized(con);
+        for ( String q :converter.generateInstanceDataQueries(new Resource() {
             @Override
             public String stringValue() {
                 return "http://lod2.eu/schemas/rdfh#lineitemCube";
