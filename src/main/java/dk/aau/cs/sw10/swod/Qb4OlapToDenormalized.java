@@ -1,7 +1,11 @@
 package dk.aau.cs.sw10.swod;
 
 import org.openrdf.model.Resource;
+import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
+import org.openrdf.model.Value;
+import org.openrdf.model.impl.StatementImpl;
+import org.openrdf.model.impl.URIImpl;
 import org.openrdf.repository.Repository;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
@@ -19,6 +23,10 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
 {
     public Qb4OlapToDenormalized(RepositoryConnection inputConnection) {
         super(inputConnection);
+    }
+
+    public Qb4OlapToDenormalized(RepositoryConnection inputConnection,String regex,String replace) {
+        super(inputConnection,regex,replace);
     }
 
     /**
@@ -62,7 +70,11 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
             query += "    ?level"+(i-1)+" <"+levels.get(i)+"> ?level"+i+".\n";
         }
         query +="    ?level"+ (levels.size()-1)+" ?p ?o .\n" +
-                "    BIND(URI(CONCAT(\""+dimension+"_"+currentLevel.getLocalName()+"_\",REPLACE(STR(?p),\"^.*[/#]\",\"\"))) as ?denorm_predicate) .\n";
+                "    BIND(URI(CONCAT(\""+
+                dimension.getNamespace()+
+                dimension.getLocalName().replaceAll(regex,replace)+"_"+
+                currentLevel.getLocalName().replaceAll(regex,replace)+
+                "_\",REPLACE(REPLACE(STR(?p),\"^.*[/#]\",\"\"),\""+regex+"\",\""+replace+"\"))) as ?denorm_predicate) .\n";
 
 
         query += "    FILTER(   \n";
@@ -101,15 +113,23 @@ public class Qb4OlapToDenormalized extends OlapDenormalizerAbstract
             //Do processing
             for(URI property : getOutgoingPropertiesOfLevel(level))
             {
-
+                if(! isA(property, con.getValueFactory().createURI("http://www.w3.org/2002/07/owl#InverseFunctionalProperty")))
+                {
+                    con.add(
+                            con.getValueFactory().createStatement(
+                                    con.getValueFactory().createURI(
+                                            dim.getNamespace()+
+                                            dim.getLocalName().replaceAll(regex,replace) + "_" +
+                                            level.getLocalName().replaceAll(regex,replace) + "_" +
+                                            property.getLocalName().replaceAll(regex,replace)),
+                                    con.getValueFactory().createURI("http://www.w3.org/2000/01/rdf-schema#subPropertyOf"),
+                                    property
+                            )
+                    );
+                }
             }
         }
         con.close();
         return repo;
-    }
-
-    private Iterable<? extends URI> getOutgoingPropertiesOfLevel(URI level) {
-
-        return null;
     }
 }

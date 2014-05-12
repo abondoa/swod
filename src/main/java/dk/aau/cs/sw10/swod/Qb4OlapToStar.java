@@ -41,21 +41,17 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         }
         ArrayList<String> res = new ArrayList<String>(1);
         ArrayList<URI> nextLevels = new ArrayList<URI>();
-        try {
-            for(URI level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
+        URI currentLevel = levels.get(levels.size() - 1);
+        URI dimension = levels.get(0);
+        for(URI level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
+        {
+            ArrayList<URI> levelsTemp = new ArrayList<URI>(levels);
+            levelsTemp.add(level);
+            for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, false))
             {
-                ArrayList<URI> levelsTemp = new ArrayList<URI>(levels);
-                levelsTemp.add(level);
-                for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, false))
-                {
-                    res.add(levelQuery);
-                }
-                nextLevels.add(level);
+                res.add(levelQuery);
             }
-        } catch (MalformedQueryException e) {
-            e.printStackTrace();
-        } catch (QueryEvaluationException e) {
-            e.printStackTrace();
+            nextLevels.add(level);
         }
 
         String query = "construct \n" +
@@ -64,7 +60,7 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         {
             query += "    ?fact <"+levels.get(0)+"> ?level0 .\n";
         }
-        query +="    ?level0 ?p_level ?o_level .\n" +
+        query +="    ?level0 ?star_predicate ?o_level .\n" +
                 "}\n" +
                 "where\n" +
                 "{\n" +
@@ -75,7 +71,11 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         {
             query += "    ?level"+(i-1)+" <"+levels.get(i)+"> ?level"+i+".\n";
         }
-        query +="    ?level"+ (levels.size()-1)+" ?p_level ?o_level .\n" ;
+        query +="    ?level"+ (levels.size()-1)+" ?p_level ?o_level .\n" +
+                "    BIND(URI(CONCAT(\""+
+                currentLevel.getNamespace()+
+                currentLevel.getLocalName().replaceAll(regex,replace)+
+                "_\",REPLACE(REPLACE(STR(?p_level),\"^.*[/#]\",\"\"),\""+regex+"\",\""+replace+"\"))) as ?star_predicate) .\n";
 
 
         query += "    FILTER(   \n";

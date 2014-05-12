@@ -2,12 +2,16 @@ package dk.aau.cs.sw10.swod;
 
 import org.apache.commons.cli.*;
 import org.openrdf.model.Resource;
+import org.openrdf.query.QueryLanguage;
 import org.openrdf.query.parser.QueryParserRegistry;
 import org.openrdf.query.parser.sparql.SPARQLParserFactory;
+import org.openrdf.repository.Repository;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.sail.SailRepository;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParserRegistry;
+import org.openrdf.rio.RDFWriter;
+import org.openrdf.rio.Rio;
 import org.openrdf.rio.turtle.TurtleParserFactory;
 import org.openrdf.sail.memory.MemoryStore;
 
@@ -42,14 +46,15 @@ public class Main
         File inputFile = new File(commandLine.getOptionValue("ontology"));
         con.add(inputFile, "", RDFFormat.TURTLE);//forFileName(inputFile.getName()));
 
-        int i = 0;
-        OlapDenormalizer converter = new Qb4OlapToDenormalized(con);
-        for ( String q :converter.generateInstanceDataQueries(new Resource() {
+        Resource cube = new Resource() {
             @Override
             public String stringValue() {
                 return "http://lod2.eu/schemas/rdfh#lineitemCube";
             }
-        }))
+        };
+        int i = 0;
+        OlapDenormalizer converter = new Qb4OlapToDenormalized(con,".*[/#_]","");
+        for ( String q :converter.generateInstanceDataQueries(cube))
         {
             File f = new File("tmp/"+ i++ +".spql");
             Writer w = new FileWriter(f);
@@ -58,5 +63,10 @@ public class Main
             w.flush();;
             w.close();
         }
+        RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, new FileWriter("meta.ttl"));
+        Repository rep = converter.generateOntology(cube);
+        rep.getConnection().prepareGraphQuery(QueryLanguage.SPARQL,
+                "CONSTRUCT {?s ?p ?o } WHERE {?s ?p ?o } ").evaluate(writer);
+        return;
     }
 }

@@ -2,6 +2,7 @@ package dk.aau.cs.sw10.swod;
 
 import org.openrdf.model.Resource;
 import org.openrdf.model.URI;
+import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.ValueFactoryImpl;
 import org.openrdf.query.*;
 import org.openrdf.repository.RepositoryConnection;
@@ -16,6 +17,8 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
     private String prefixes;
 
     private RepositoryConnection inputConnection;
+    protected String regex;
+    protected String replace;
 
     protected RepositoryConnection getInputConnection() {
         return inputConnection;
@@ -24,18 +27,24 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         return prefixes;
     }
     public OlapDenormalizerAbstract(RepositoryConnection inputConnection) {
+        this(inputConnection,"","");
+    }
+
+    public OlapDenormalizerAbstract(RepositoryConnection inputConnection, String regex, String replace) {
         this.inputConnection = inputConnection;
         this.prefixes =
                 "prefix skos:           <http://www.w3.org/2004/02/skos/core#>\n" +
-                "prefix qb:             <http://purl.org/linked-data/cube#>\n" +
-                "prefix qb4o:           <http://publishing-multidimensional-data.googlecode.com/git/index.html#ref_qbplus_>\n" +
-                "prefix rdfh:           <http://lod2.eu/schemas/rdfh#>\n" +
-                "prefix rdfh-inst:      <http://lod2.eu/schemas/rdfh-inst#>\n" +
-                "prefix owl:            <http://www.w3.org/2002/07/owl#>\n" +
-                "prefix rdf:            <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
-                "prefix xml:            <http://www.w3.org/XML/1998/namespace>\n" +
-                "prefix xsd:            <http://www.w3.org/2001/XMLSchema#>\n" +
-                "prefix rdfs:           <http://www.w3.org/2000/01/rdf-schema#>\n";
+                        "prefix qb:             <http://purl.org/linked-data/cube#>\n" +
+                        "prefix qb4o:           <http://publishing-multidimensional-data.googlecode.com/git/index.html#ref_qbplus_>\n" +
+                        "prefix rdfh:           <http://lod2.eu/schemas/rdfh#>\n" +
+                        "prefix rdfh-inst:      <http://lod2.eu/schemas/rdfh-inst#>\n" +
+                        "prefix owl:            <http://www.w3.org/2002/07/owl#>\n" +
+                        "prefix rdf:            <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
+                        "prefix xml:            <http://www.w3.org/XML/1998/namespace>\n" +
+                        "prefix xsd:            <http://www.w3.org/2001/XMLSchema#>\n" +
+                        "prefix rdfs:           <http://www.w3.org/2000/01/rdf-schema#>\n";
+        this.regex = regex;
+        this.replace = replace;
     }
 
     protected  ArrayList<URI> getDimensions(Resource dataSet) throws  RepositoryException {
@@ -44,8 +53,8 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
                 "{ " +
                 " <" + dataSet.stringValue() + "> qb:structure ?structure . " +
                 " ?structure qb:component ?component . " +
-                " ?component qb4o:level ?level ;" +
-                "            qb:order ?order . " +
+                " ?component qb4o:level ?level . " +
+                " OPTIONAL { ?component qb:order ?order } . " +
                 "} " +
                 "order by ASC(?order) " ;
 
@@ -159,5 +168,47 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
             e.printStackTrace();
         }
         return res;
+    }
+
+    protected ArrayList<? extends URI> getOutgoingPropertiesOfLevel(URI levelProperty) throws RepositoryException {
+        ArrayList<URI> res = new ArrayList<URI>();
+        String nextLevelQuery = getPrefixes()+
+                "SELECT ?attribute WHERE " +
+                "{ " +
+                " <" + levelProperty + "> qb4o:hasAttribute ?attribute . " +
+                "}" ;
+
+        TupleQueryResult result = null;
+        try {
+            result = getInputConnection().prepareTupleQuery(QueryLanguage.SPARQL, nextLevelQuery).evaluate();
+            while(result.hasNext())
+            {
+                BindingSet next = result.next();
+                URI attribute = (URI) next.getBinding("attribute").getValue();
+                res.add((attribute));
+            }
+        } catch (QueryEvaluationException e) {
+            e.printStackTrace();
+        } catch (MalformedQueryException e) {
+            e.printStackTrace();
+        }
+        return res;
+    }
+
+    protected boolean isA(URI resource, URI type) throws RepositoryException {
+        String typeTripleExistsQuery = getPrefixes()+
+                "ASK " +
+                "{ " +
+                " <" + resource + "> a <"+type+"> . " +
+                "}" ;
+
+        try {
+            return getInputConnection().prepareBooleanQuery(QueryLanguage.SPARQL, typeTripleExistsQuery).evaluate();
+        } catch (QueryEvaluationException e) {
+            e.printStackTrace();
+        } catch (MalformedQueryException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
