@@ -53,7 +53,7 @@ public class Main
             }
         };
         int i = 0;
-        OlapDenormalizer converter = new Qb4OlapToDenormalized(con,".*[/#_]","");
+        OlapDenormalizer converter = new Qb4OlapToStar(con,".*[/#_]","");
         for ( String q :converter.generateInstanceDataQueries(cube))
         {
             File f = new File("tmp/"+ i++ +".spql");

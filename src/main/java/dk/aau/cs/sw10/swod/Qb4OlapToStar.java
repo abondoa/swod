@@ -12,6 +12,7 @@ import org.openrdf.sail.memory.MemoryStore;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.ArrayList;
+import java.util.Stack;
 
 /**
  * Created by alex on 5/6/14.
@@ -23,6 +24,10 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
 
     public Qb4OlapToStar(RepositoryConnection inputConnection) {
         super(inputConnection);
+    }
+
+    public Qb4OlapToStar(RepositoryConnection inputConnection,String regex,String replace) {
+        super(inputConnection,regex,replace);
     }
 
     /**
@@ -83,8 +88,11 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         {
             query += "    ?p_level != <"+dim+"> &&\n";
         }
-        query += "    ?p_level != skos:broader\n";
-        query += "    ) .\n";
+        query +="    ?p_level != rdf:type && \n" +
+                "    ?p_level != qb:dataSet && \n" +
+                "    ?p_level != skos:broader &&\n" +
+                "    ?p_level != qb4o:inLevel\n"+
+                "    ) .\n";
 
         query += "} ";
         res.add(query);
@@ -93,12 +101,38 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
 
     public Repository generateOntology(Resource dataSet) throws RepositoryException
     {
-        throw new NotImplementedException();
-        /*org.openrdf.repository.Repository repo = new SailRepository(new MemoryStore());
+        org.openrdf.repository.Repository repo = new SailRepository(new MemoryStore());
         repo.initialize();
         RepositoryConnection con = repo.getConnection();
-
+        Stack<URI> levelsToProcess = new Stack<URI>();
+        ArrayList<URI> dimensions = getDimensions(dataSet);
+        levelsToProcess.addAll(dimensions);
+        while(!levelsToProcess.empty())
+        {
+            URI level = levelsToProcess.pop();
+            for(URI parentLevel :getParentLevels(dataSet,level))
+            {
+                levelsToProcess.add(parentLevel);
+            }
+            //Do processing
+            for(URI property : getOutgoingPropertiesOfLevel(level))
+            {
+                if(! isA(property, con.getValueFactory().createURI("http://www.w3.org/2002/07/owl#InverseFunctionalProperty")))
+                {
+                    con.add(
+                            con.getValueFactory().createStatement(
+                                    con.getValueFactory().createURI(
+                                            level.getNamespace()+
+                                            level.getLocalName().replaceAll(regex,replace) + "_" +
+                                            property.getLocalName().replaceAll(regex,replace)),
+                                    con.getValueFactory().createURI("http://www.w3.org/2000/01/rdf-schema#subPropertyOf"),
+                                    property
+                            )
+                    );
+                }
+            }
+        }
         con.close();
-        return repo;*/
+        return repo;
     }
 }
