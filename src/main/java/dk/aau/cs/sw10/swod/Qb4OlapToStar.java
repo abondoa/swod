@@ -41,9 +41,6 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
     }
 
     protected ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
-        if(this.levels.contains(levels.get(levels.size()-1))){
-            //return new ArrayList<String>();
-        }
         ArrayList<String> res = new ArrayList<String>(1);
         ArrayList<URI> nextLevels = new ArrayList<URI>();
         URI currentLevel = levels.get(levels.size() - 1);
@@ -70,7 +67,7 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
                 "where\n" +
                 "{\n" +
                 "    ?fact qb:dataSet <"+dataSet.stringValue()+"> .\n" +
-                "    ?fact <"+levels.get(0)+"> ?level0 .\n";
+                "    ?fact <"+dimension+"> ?level0 .\n";
 
         for(int i = 1 ; i < levels.size() ; ++i)
         {

@@ -49,11 +49,11 @@ public class Main
         Resource cube = new Resource() {
             @Override
             public String stringValue() {
-                return "http://lod2.eu/schemas/rdfh#lineitemCube";
+                return "http://extbi.lab.aau.dk/ontology/ltpch/lineitemCube";
             }
         };
         int i = 0;
-        OlapDenormalizer converter = new Qb4OlapToStar(con,".*[/#_]","");
+        OlapDenormalizer converter = new Qb4OlapToDenormalizedVerbose(con,".*[/#_]","");
         for ( String q :converter.generateInstanceDataQueries(cube))
         {
             File f = new File("tmp/"+ i++ +".spql");

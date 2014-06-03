@@ -36,8 +36,8 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
                 "prefix skos:           <http://www.w3.org/2004/02/skos/core#>\n" +
                         "prefix qb:             <http://purl.org/linked-data/cube#>\n" +
                         "prefix qb4o:           <http://publishing-multidimensional-data.googlecode.com/git/index.html#ref_qbplus_>\n" +
-                        "prefix rdfh:           <http://lod2.eu/schemas/rdfh#>\n" +
-                        "prefix rdfh-inst:      <http://lod2.eu/schemas/rdfh-inst#>\n" +
+                        "prefix ltpch:           <http://lod2.eu/schemas/rdfh#>\n" +
+                        "prefix ltpch-inst:      <http://lod2.eu/schemas/rdfh-inst#>\n" +
                         "prefix owl:            <http://www.w3.org/2002/07/owl#>\n" +
                         "prefix rdf:            <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
                         "prefix xml:            <http://www.w3.org/XML/1998/namespace>\n" +
@@ -79,9 +79,9 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
         String measureQuery = getPrefixes()+
                 "SELECT ?measure WHERE " +
                 "{ " +
-                " <" + dataSet.stringValue() + "> qb:structure ?structure . " +
-                " ?structure qb:component ?component . " +
-                " ?component qb:measure ?measure . " +
+                "    <" + dataSet.stringValue() + "> qb:structure ?structure . " +
+                "    ?structure qb:component ?component . " +
+                "    ?component qb:measure ?measure . " +
                 "}" ;
 
         ArrayList<URI> measures = new ArrayList<URI>();
@@ -99,6 +99,30 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
             e.printStackTrace();
         }
         return measures;
+    }
+    public static String implode(String separator, String... data) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < data.length - 1; i++) {
+            //data.length - 1 => to not add separator at the end
+            if (!data[i].matches(" *")) {//empty string are ""; " "; "  "; and so on
+                sb.append(data[i]);
+                sb.append(separator);
+            }
+        }
+        sb.append(data[data.length - 1]);
+        return sb.toString();
+    }
+    public static String implode(String separator,ArrayList<String> data) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < data.size() - 1; i++) {
+            //data.length - 1 => to not add separator at the end
+            if (!data.get(i).matches(" *")) {//empty string are ""; " "; "  "; and so on
+                sb.append(data.get(i));
+                sb.append(separator);
+            }
+        }
+        sb.append(data.get(data.size() - 1));
+        return sb.toString();
     }
 
     protected Iterable<? extends String> generateQueriesForDataSet(Resource dataSet) throws RepositoryException {
