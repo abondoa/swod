@@ -1,15 +1,12 @@
 package dk.aau.cs.sw10.swod;
 
 import org.openrdf.model.Resource;
-import org.openrdf.model.Value;
 import org.openrdf.model.URI;
-import org.openrdf.query.*;
 import org.openrdf.repository.Repository;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.sail.SailRepository;
 import org.openrdf.sail.memory.MemoryStore;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.ArrayList;
 import java.util.Stack;
@@ -17,27 +14,46 @@ import java.util.Stack;
 /**
  * Created by alex on 5/6/14.
  */
-public class Qb4OlapToStar extends OlapDenormalizerAbstract
+public class Qb4OlapToStarVerbose extends Qb4OlapToStar
 {
 
     private ArrayList<String> levels;
 
-    public Qb4OlapToStar(RepositoryConnection inputConnection) {
+    public Qb4OlapToStarVerbose(RepositoryConnection inputConnection) {
         super(inputConnection);
     }
 
-    public Qb4OlapToStar(RepositoryConnection inputConnection,String regex,String replace) {
+    public Qb4OlapToStarVerbose(RepositoryConnection inputConnection, String regex, String replace) {
         super(inputConnection,regex,replace);
     }
 
-    /**
-     * Generate queries to convert data from QB4OLAP format into Starschema format
-     * @param dataSet
-     * @return
-     */
-    public Iterable<? extends String> generateInstanceDataQueries(Resource dataSet) throws RepositoryException {
-        this.levels = new ArrayList<String>();
-        return  generateQueriesForDataSet(dataSet);
+    @Override
+    protected Iterable<? extends String> generateQueriesForDataSet(Resource dataSet) throws RepositoryException {
+        ArrayList<URI> measures = getMeasures(dataSet);
+        ArrayList<URI> dimensions = getDimensions(dataSet);
+        ArrayList<String> queries = generateObservationQueries(dataSet,dimensions);
+
+        String query = "construct \n" +
+                "{\n" +
+                "    ?dim ?star_predicate ?o_level ;\n" +
+                "         qb4o:inLevel ?inLevel .\n" +
+                "}\n" +
+                "where\n" +
+                "{ {";
+        ArrayList<String> dimQueries = new ArrayList<String>();
+        for(URI dimension : dimensions)
+        {
+            dimQueries.addAll(generateDimensionQueries(dataSet,dimension));
+        }
+        query += implode("\n}UNION{\n",dimQueries) + "\n}\n }";
+        queries.add(query);
+        return queries;
+    }
+
+    protected ArrayList<? extends String> generateDimensionQueries(Resource dataSet, URI dimension) throws RepositoryException {
+        ArrayList<URI> levels = new ArrayList<URI>(1);
+        levels.add(dimension);
+        return generateLevelQueries(dataSet,levels,false);
     }
 
     protected ArrayList<? extends String> generateLevelQueries(Resource dataSet, ArrayList<URI> levels, boolean first) throws RepositoryException {
@@ -45,60 +61,85 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
         ArrayList<URI> nextLevels = new ArrayList<URI>();
         URI currentLevel = levels.get(levels.size() - 1);
         URI dimension = levels.get(0);
-        for(URI level : getParentLevels(dataSet,levels.get(levels.size() - 1)))
+        int correctForFact = first ? 0 : 1;
+        for(URI level : getParentLevels(dataSet,currentLevel))
         {
             ArrayList<URI> levelsTemp = new ArrayList<URI>(levels);
             levelsTemp.add(level);
-            for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, false))
+            for(String levelQuery : generateLevelQueries(dataSet, levelsTemp, first))
             {
                 res.add(levelQuery);
             }
             nextLevels.add(level);
         }
 
-        String query = "construct \n" +
-                "{\n";
-        if(first)
-        {
-            query += "    ?fact <"+levels.get(0)+"> ?level0 .\n";
-        }
-        query +="    ?level0 ?star_predicate ?o_level .\n" +
-                "}\n" +
+        String query = "select\n" +
+                "    ?dim ?star_predicate ?o_level ?inLevel\n" +
                 "where\n" +
                 "{\n" +
-                "    ?fact qb:dataSet <"+dataSet.stringValue()+"> .\n" +
-                "    ?fact <"+dimension+"> ?level0 .\n";
+                "    ?level"+levels.size()+" qb4o:inLevel <"+currentLevel+"> ;\n" +
+                "                    ?p_level ?o_level .\n" +
+                "    FILTER(   \n";
 
-        for(int i = 1 ; i < levels.size() ; ++i)
+        for(URI level : nextLevels)
         {
-            query += "    ?level"+(i-1)+" <"+levels.get(i)+"> ?level"+i+".\n";
+            query +=
+                "        ?p_level != <"+level+"> &&\n";
         }
-        query +="    ?level"+ (levels.size()-1)+" ?p_level ?o_level .\n" +
+        query +=
+                "        ?p_level != rdf:type && \n" +
+                "        ?p_level != qb:dataSet && \n" +
+                "        ?p_level != skos:broader &&\n" +
+                "        ?p_level != qb4o:inLevel\n" +
+                "    ) .\n" +
+                "    BIND(<"+currentLevel+"> as ?inLevel) .\n" +
                 "    BIND(URI(CONCAT(\""+
                 currentLevel.getNamespace()+
+                        (first ? dimension.getLocalName().replaceAll(regex,replace) + "_" : "") +
                 currentLevel.getLocalName().replaceAll(regex,replace)+
-                "_\",REPLACE(REPLACE(STR(?p_level),\"^.*[/#]\",\"\"),\""+regex+"\",\""+replace+"\"))) as ?star_predicate) .\n";
+                "_\",REPLACE(STR(?p_level),\""+regex+"\",\""+replace+"\"))) as ?star_predicate) .\n";
 
-
-        query += "    FILTER(   \n";
-        for(URI dim : nextLevels)
+        for(int i = levels.size()-1 ; i >= correctForFact ; --i)
         {
-            query += "    ?p_level != <"+dim+"> &&\n";
+            query +=
+                    "    OPTIONAL {\n" +
+                    "       ?level"+i+" <"+levels.get(i)+"> ?level"+(i+1)+".\n";
         }
-        query +="    ?p_level != rdf:type && \n" +
-                "    ?p_level != qb:dataSet && \n" +
-                "    ?p_level != skos:broader &&\n" +
-                "    ?p_level != qb4o:inLevel\n"+
-                "    ) .\n";
 
-        query += "} ";
+        for(int i = levels.size()-1 ; i >= correctForFact ; --i)
+        {
+            query +="    }\n";
+        }
+        for(int i = levels.size() ; i >= correctForFact ; --i)
+        {
+            query +=
+                    "    OPTIONAL { BIND(?level"+i+" as ?dim) . }\n";
+        }
+        query += "}\n";
         res.add(query);
         return res;
     }
 
+    @Override
+    protected ArrayList<String> generateObservationQueries(Resource dataSet, ArrayList<URI> dimensions) {
+    String query =
+            "construct \n" +
+                    "{\n" +
+                    "    ?li ?p_li ?o_li .\n" +
+                    "}\n" +
+                    "where\n" +
+                    "{\n" +
+                    "    ?li qb:dataSet <"+dataSet.stringValue()+"> .\n" +
+                    "    ?li ?p_li ?o_li .\n";
+    query += " } ";
+    ArrayList<String> res = new ArrayList<String>(1);
+    res.add(query);
+    return res;
+}
+
     public Repository generateOntology(Resource dataSet) throws RepositoryException
     {
-        org.openrdf.repository.Repository repo = new SailRepository(new MemoryStore());
+        Repository repo = new SailRepository(new MemoryStore());
         repo.initialize();
         RepositoryConnection con = repo.getConnection();
         Stack<URI> levelsToProcess = new Stack<URI>();
@@ -123,6 +164,29 @@ public class Qb4OlapToStar extends OlapDenormalizerAbstract
                                             level.getLocalName().replaceAll(regex,replace) + "_" +
                                             property.getLocalName().replaceAll(regex,replace)),
                                     con.getValueFactory().createURI("http://www.w3.org/2000/01/rdf-schema#subPropertyOf"),
+                                    property
+                            )
+                    );
+                }
+                else
+                {
+                    con.add(
+                            con.getValueFactory().createStatement(
+                                    con.getValueFactory().createURI(
+                                            level.getNamespace()+
+                                                    level.getLocalName().replaceAll(regex,replace) + "_" +
+                                                    property.getLocalName().replaceAll(regex,replace)),
+                                    con.getValueFactory().createURI("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                                    con.getValueFactory().createURI("http://www.w3.org/1999/02/22-rdf-syntax-ns#Property")
+                            )
+                    );
+                    con.add(
+                            con.getValueFactory().createStatement(
+                                    con.getValueFactory().createURI(
+                                            level.getNamespace()+
+                                                    level.getLocalName().replaceAll(regex,replace) + "_" +
+                                                    property.getLocalName().replaceAll(regex,replace)),
+                                    con.getValueFactory().createURI("http://www.w3.org/2000/01/rdf-schema#seeAlso"),
                                     property
                             )
                     );

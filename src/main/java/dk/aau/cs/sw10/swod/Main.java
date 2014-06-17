@@ -53,14 +53,14 @@ public class Main
             }
         };
         int i = 0;
-        OlapDenormalizer converter = new Qb4OlapToDenormalizedVerbose(con,".*[/#_]","");
+        OlapDenormalizer converter = new Qb4OlapToDenormalized(con,".*[/#_]","");
         for ( String q :converter.generateInstanceDataQueries(cube))
         {
             File f = new File("tmp/"+ i++ +".spql");
             Writer w = new FileWriter(f);
             w.write(converter.getPrefixes());
             w.write(q);
-            w.flush();;
+            w.flush();
             w.close();
         }
         RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, new FileWriter("meta.ttl"));

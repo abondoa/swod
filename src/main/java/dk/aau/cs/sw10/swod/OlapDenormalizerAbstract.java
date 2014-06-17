@@ -36,8 +36,8 @@ abstract public class OlapDenormalizerAbstract implements OlapDenormalizer {
                 "prefix skos:           <http://www.w3.org/2004/02/skos/core#>\n" +
                         "prefix qb:             <http://purl.org/linked-data/cube#>\n" +
                         "prefix qb4o:           <http://publishing-multidimensional-data.googlecode.com/git/index.html#ref_qbplus_>\n" +
-                        "prefix ltpch:           <http://lod2.eu/schemas/rdfh#>\n" +
-                        "prefix ltpch-inst:      <http://lod2.eu/schemas/rdfh-inst#>\n" +
+                        "prefix ltpch:           <http://extbi.lab.aau.dk/ontology/ltpch/>\n" +
+                        "prefix ltpch-inst:      <http://extbi.lab.aau.dk/resource/ltpch/>\n" +
                         "prefix owl:            <http://www.w3.org/2002/07/owl#>\n" +
                         "prefix rdf:            <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n" +
                         "prefix xml:            <http://www.w3.org/XML/1998/namespace>\n" +
